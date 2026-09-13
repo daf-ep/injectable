@@ -76,9 +76,11 @@ Fixing a test instead of the code is the third. When a test fails, the first hyp
 
 Treating a high coverage number, or a test that runs the code without asserting anything about what it did, as proof of verification is a fourth. Both are proof of execution dressed up as proof of verification, the same lie as the other three wearing a number instead of a sentence.
 
-## What You Create to Test, You Remove
+## What You Create or Start to Test, You Remove or Stop
 
 Folders, sample projects, temporary files, inputs dropped somewhere to see how the code reacts: all of that gets removed once the check is done, or it becomes a state someone will eventually mistake for real.
+
+The same holds for a service or a container started to run the third check for real rather than against a double: a database, a queue, anything `docker compose up` or an equivalent command brought up only to make this one verification possible. Once the check is done, what got started gets stopped, the same way a file gets removed. The same restraint applies too: you stop only what you started yourself, never a service that was already running before the check began. Stopping someone else's database, or a development stack you don't own, to tidy up after your own check costs far more than the time it saves, and it can drop work in progress that has nothing to do with what you were checking.
 
 And it gets removed by looking at what you're deleting. A broad deletion run in a directory that also holds real work costs far more than the time it saves, especially where nothing is versioned yet. You list before erasing, you name what you erase, and you never erase a pattern.
 
