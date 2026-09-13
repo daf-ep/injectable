@@ -38,10 +38,19 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:http/http.dart' as http;
+
 import '../capture.dart';
 import '../capture_seal.dart';
+import '../capture_sync.dart';
 import '../globals.dart' as globals;
 import '../runner/injectable_command.dart';
+
+/// The most this command ever waits on [syncCaptures] before moving on:
+/// draining the whole queue could in principle take longer than a single
+/// upload's own [uploadTimeout], and this command's contract is to never
+/// hold up a Claude Code hook waiting on it, whatever the reason.
+const _syncBudget = Duration(seconds: 5);
 
 /// The field each direction's JSON payload carries the text to capture in.
 /// Claude Code names these fields itself; see the hooks reference for
@@ -91,6 +100,7 @@ class BridgeCommand extends InjectableCommand {
     final rawPayload = await utf8.decoder.bind(stdin).join();
 
     await _tryCapture(direction: direction, rawPayload: rawPayload);
+    await _trySync();
 
     return const InjectableCommandResult.success();
   }
@@ -135,6 +145,34 @@ class BridgeCommand extends InjectableCommand {
       );
     } catch (_) {
       return;
+    }
+  }
+
+  /// Attempts to flush the local capture queue to `dpw-backend`, bounded by
+  /// [_syncBudget] so an unreachable or slow backend can never hold up this
+  /// command past that: whatever [syncCaptures] has not sent by then is left
+  /// for the next hook firing to try again, exactly as if this attempt had
+  /// not run at all.
+  ///
+  /// A no-op, like [_tryCapture], until [globals.storedSession] names a
+  /// token to authenticate the upload with: without one, `dpw-backend`
+  /// would refuse every request anyway.
+  Future<void> _trySync() async {
+    final session = globals.storedSession;
+    if (session == null) return;
+
+    final httpClient = http.Client();
+    try {
+      await syncCaptures(
+        httpClient: httpClient,
+        backendBaseUrl: globals.backendBaseUrl,
+        databasePath: globals.capturesDatabasePath,
+        sessionToken: session.token,
+      ).timeout(_syncBudget, onTimeout: () {});
+    } catch (_) {
+      return;
+    } finally {
+      httpClient.close();
     }
   }
 }

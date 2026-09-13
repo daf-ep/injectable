@@ -67,6 +67,12 @@ void main() {
       'INJECTABLE_CREDENTIALS_PATH': credentialsPath,
       'INJECTABLE_CAPTURES_DATABASE': capturesDatabase,
       'INJECTABLE_CAPTURE_PUBLIC_KEY': base64Encode(recipientPublicKey.bytes),
+      // A stored session makes this run's bridge also attempt syncCaptures
+      // (see capture_sync_test.dart for that behaviour on its own). Pinned
+      // to a port nothing ever listens on so this test's own assertions,
+      // reading the two rows back before any sync could consume one, never
+      // depend on what else happens to be running on the host.
+      'INJECTABLE_BACKEND_URL': 'http://127.0.0.1:1',
     };
 
     await _runBridge(
