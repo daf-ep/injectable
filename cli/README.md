@@ -25,9 +25,14 @@ not shared: `init` ensures each of its files exists under this project's
 `.claude/injectable/`, without ever overwriting one the project already wrote.
 `init` also declares `injectable`'s MCP server in `.mcp.json`, adding or replacing
 only its own entry and leaving every other server a project declared for
-itself alone. It declares `injectable`'s hooks in `.claude/settings.json` the same
-way, and adds `.claude/context` to `.gitignore` for whatever local file a
-future capture mechanism writes there.
+itself alone. It declares `injectable`'s hooks in `.claude/settings.local.json` the
+same way, never in `.claude/settings.json`, which a project routinely commits, and
+adds `.claude/context` to `.gitignore` for whatever local file a future capture
+mechanism writes there. When a session is stored, it also declares
+`ANTHROPIC_BASE_URL` under `env` in that same `.claude/settings.local.json`, pointed
+at injectable's BYOK gateway for this project and the logged-in account; with no
+session stored, it skips this and says so instead of writing an url with no
+account to attribute captures to.
 
 `injectable` only works inside a git repository whose `origin` remote points at
 GitHub or GitLab: the project's id is `host/owner/repo`, taken from that
@@ -44,7 +49,7 @@ every project, at `$HOME/.local/share/injectable/decisions.sqlite3` unless
 id.
 
 `bridge` is wired into `SessionStart`, `UserPromptSubmit` and `Stop` in
-`.claude/settings.json` by `init`, as `--start`, `--input` and `--end`
+`.claude/settings.local.json` by `init`, as `--start`, `--input` and `--end`
 respectively, and is not meant to be run by hand. `--input` and `--end` seal
 the exchange's text and queue it locally; `--start` does nothing yet. See
 "Capturing session context" below for where that stands.
@@ -56,7 +61,10 @@ the exchange's text and queue it locally; `--start` does nothing yet. See
 ship inside the CLI, never a secret the way a client secret would be. A
 self-managed GitLab instance is named through `INJECTABLE_GITLAB_BASE_URL`,
 `https://gitlab.com` otherwise. `INJECTABLE_BACKEND_URL` says where injectable's backend
-API lives, `http://localhost:8080` otherwise.
+API lives, `http://localhost:8080` otherwise. `INJECTABLE_GATEWAY_URL` says where
+injectable's BYOK gateway lives, `INJECTABLE_BACKEND_URL`'s value otherwise: the
+gateway and the backend API are the same deployed service unless a project's
+setup says otherwise.
 
 ## Checking for updates
 

@@ -79,7 +79,19 @@ class InitCommand extends InjectableCommand {
 
     ensureGitignored(cwd, '.claude/context');
     ensureHooksDeclared(cwd);
-    globals.logger.printStatus('injectable: declared the context hooks in .claude/settings.json');
+    globals.logger.printStatus('injectable: declared the context hooks in .claude/settings.local.json');
+
+    final declaredGatewayUrl = ensureGatewayUrlDeclared(
+      cwd,
+      gatewayBaseUrl: globals.gatewayBaseUrl,
+      projectId: await globals.projectId,
+      login: globals.storedSession?.login,
+    );
+    if (declaredGatewayUrl) {
+      globals.logger.printStatus('injectable: declared the gateway base url in .claude/settings.local.json');
+    } else {
+      globals.logger.printStatus('injectable: not logged in, skipped declaring the gateway base url');
+    }
 
     return const InjectableCommandResult.success();
   }

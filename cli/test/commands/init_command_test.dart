@@ -44,6 +44,7 @@ import 'package:cli/src/base/logger.dart';
 import 'package:cli/src/commands/init.dart';
 import 'package:cli/src/globals.dart';
 import 'package:cli/src/rules/store.dart';
+import 'package:cli/src/runner/injectable_command.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -90,8 +91,52 @@ void main() {
 
     expect(File(p.join(project.path, '.gitignore')).readAsStringSync(), contains('.claude/context'));
 
+    expect(File(p.join(project.path, '.claude', 'settings.json')).existsSync(), isFalse);
+
     final settings =
-        jsonDecode(File(p.join(project.path, '.claude', 'settings.json')).readAsStringSync()) as Map<String, dynamic>;
+        jsonDecode(File(p.join(project.path, '.claude', 'settings.local.json')).readAsStringSync())
+            as Map<String, dynamic>;
     expect((settings['hooks'] as Map<String, dynamic>).keys, containsAll(['SessionStart', 'UserPromptSubmit', 'Stop']));
+    expect(
+      (settings['env'] as Map<String, dynamic>)['ANTHROPIC_BASE_URL'],
+      'http://localhost:8080/p/github.com/injectable-tests/init-command-test/injectable-tests',
+    );
+  });
+
+  test('warns instead of declaring a gateway url with no stored session', () async {
+    final rulesSource = Directory(p.join(Directory.current.path, '..', 'rules'));
+    final workspace = Directory.systemTemp.createTempSync('injectable_init_command_no_session_');
+    final project = Directory(p.join(workspace.path, 'project'))..createSync();
+    final rulesStoreRoot = Directory.systemTemp.createTempSync('injectable_init_command_no_session_rules_store_');
+    addTearDown(() => workspace.deleteSync(recursive: true));
+    addTearDown(() => rulesStoreRoot.deleteSync(recursive: true));
+
+    await initFakeGitRepo(project);
+
+    final buffer = BufferLogger();
+
+    // Calls runCommand directly, bypassing the session guard InitCommand.run
+    // applies before ever reaching it: that guard already refuses every
+    // command but login, logout and bridge without a stored session, so this
+    // is the only way to exercise runCommand's own defensive check.
+    final result = await AppContext.current.run<InjectableCommandResult>(
+      body: () => InitCommand().runCommand(),
+      overrides: <Type, Generator>{
+        Logger: () => buffer,
+        RulesSource: () => RulesSource(rulesSource),
+        ProjectRoot: () => ProjectRoot(project),
+        GitProjectId: () => const GitProjectId('github.com/injectable-tests/init-command-no-session-test'),
+        RulesStoreRoot: () => RulesStoreRoot(rulesStoreRoot),
+        StoredCredentials: () => const StoredCredentials(null),
+      },
+    );
+
+    expect(result.exitStatus, ExitStatus.success);
+    expect(buffer.statusText, contains('not logged in, skipped declaring the gateway base url'));
+    expect(File(p.join(project.path, '.claude', 'settings.local.json')).existsSync(), isTrue);
+    final settings =
+        jsonDecode(File(p.join(project.path, '.claude', 'settings.local.json')).readAsStringSync())
+            as Map<String, dynamic>;
+    expect(settings.containsKey('env'), isFalse);
   });
 }

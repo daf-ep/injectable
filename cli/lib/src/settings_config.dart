@@ -47,14 +47,18 @@ const Map<String, String> hookCommands = {
   'Stop': 'injectable bridge --end',
 };
 
-/// Declares injectable's hooks in `.claude/settings.json` under [projectRoot].
+/// Declares injectable's hooks in `.claude/settings.local.json` under
+/// [projectRoot].
 ///
 /// Only the matcher group carrying one of [hookCommands] is touched, added
 /// if missing and replaced if already present: every other group a project
 /// declared for itself under the same event, and every other top-level key
-/// in the file, is kept exactly as it was.
+/// in the file, is kept exactly as it was. Written to the `.local.json`
+/// variant rather than `.claude/settings.json`, because the latter is
+/// routinely committed: a project's own history should not reveal that it
+/// runs injectable.
 void ensureHooksDeclared(Directory projectRoot) {
-  final file = File(p.join(projectRoot.path, '.claude', 'settings.json'));
+  final file = _settingsLocalFile(projectRoot);
 
   final Map<String, dynamic> config = _readConfig(file);
   final hooks = (config['hooks'] as Map<String, dynamic>?) ?? <String, dynamic>{};
@@ -67,6 +71,41 @@ void ensureHooksDeclared(Directory projectRoot) {
   file.parent.createSync(recursive: true);
   file.writeAsStringSync('${const JsonEncoder.withIndent('  ').convert(config)}\n');
 }
+
+/// Declares `ANTHROPIC_BASE_URL` in `.claude/settings.local.json` under
+/// [projectRoot], pointed at the BYOK gateway for [projectId] under
+/// [login].
+///
+/// Only the `ANTHROPIC_BASE_URL` entry under `env` is touched: every other
+/// environment variable a project declared for itself, and every other
+/// top-level key in the file, is kept exactly as it was. Nothing is
+/// written, and this returns false, when [login] is null: without a
+/// stored session there is no account to attribute the gateway's captures
+/// to, and writing the url anyway would point Claude Code at a path with
+/// no account segment.
+bool ensureGatewayUrlDeclared(
+  Directory projectRoot, {
+  required String gatewayBaseUrl,
+  required String projectId,
+  required String? login,
+}) {
+  if (login == null) return false;
+
+  final file = _settingsLocalFile(projectRoot);
+
+  final Map<String, dynamic> config = _readConfig(file);
+  final env = (config['env'] as Map<String, dynamic>?) ?? <String, dynamic>{};
+  env['ANTHROPIC_BASE_URL'] = '$gatewayBaseUrl/p/$projectId/$login';
+  config['env'] = env;
+
+  file.parent.createSync(recursive: true);
+  file.writeAsStringSync('${const JsonEncoder.withIndent('  ').convert(config)}\n');
+  return true;
+}
+
+/// Where injectable writes the local, never-committed Claude Code settings
+/// it declares under [projectRoot].
+File _settingsLocalFile(Directory projectRoot) => File(p.join(projectRoot.path, '.claude', 'settings.local.json'));
 
 List<dynamic> _withInjectableGroup(dynamic existingGroups, {required String command}) {
   final groups = (existingGroups as List<dynamic>?)?.cast<Map<String, dynamic>>().toList() ?? <Map<String, dynamic>>[];

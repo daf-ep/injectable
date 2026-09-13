@@ -50,7 +50,7 @@ const _textFieldByDirection = {'input': 'user_input', 'output': 'last_assistant_
 
 /// Records one Claude Code hook event, for later processing.
 ///
-/// `.claude/settings.json` calls this once per firing, with the flag naming
+/// `.claude/settings.local.json` calls this once per firing, with the flag naming
 /// which hook fired: `--start` for `SessionStart`, `--input` for
 /// `UserPromptSubmit`, `--end` for `Stop`. Never fails: a hook Claude Code is
 /// waiting on has no use for an error from a capture mechanism that is not

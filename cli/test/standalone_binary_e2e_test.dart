@@ -104,7 +104,8 @@ void main() {
     expect(readRule(storeRoot: rulesStoreRoot, name: 'rules', type: 'rules'), isNotNull);
     expect(File(p.join(project.path, '.claude', 'injectable', 'push.md')).existsSync(), isTrue);
     expect(File(p.join(project.path, '.gitignore')).readAsStringSync(), contains('.claude/context'));
-    expect(File(p.join(project.path, '.claude', 'settings.json')).existsSync(), isTrue);
+    expect(File(p.join(project.path, '.claude', 'settings.json')).existsSync(), isFalse);
+    expect(File(p.join(project.path, '.claude', 'settings.local.json')).existsSync(), isTrue);
   });
 
   test('the bundled native sqlite3 library loads and records a decision', () async {

@@ -47,12 +47,12 @@ void main() {
 
   setUp(() {
     project = Directory.systemTemp.createTempSync('injectable_settings_config_');
-    configFile = File(p.join(project.path, '.claude', 'settings.json'));
+    configFile = File(p.join(project.path, '.claude', 'settings.local.json'));
   });
 
   tearDown(() => project.deleteSync(recursive: true));
 
-  test('creates .claude/settings.json declaring every hook when none exists', () {
+  test('creates .claude/settings.local.json declaring every hook when none exists', () {
     ensureHooksDeclared(project);
 
     final config = jsonDecode(configFile.readAsStringSync()) as Map<String, dynamic>;
@@ -143,5 +143,78 @@ void main() {
         ],
       },
     ]);
+  });
+
+  test('never writes to .claude/settings.json, only its .local.json variant', () {
+    ensureHooksDeclared(project);
+
+    expect(File(p.join(project.path, '.claude', 'settings.json')).existsSync(), isFalse);
+  });
+
+  group('ensureGatewayUrlDeclared', () {
+    test('declares ANTHROPIC_BASE_URL under env, scoped to the project and account', () {
+      final wrote = ensureGatewayUrlDeclared(
+        project,
+        gatewayBaseUrl: 'https://gateway.example.com',
+        projectId: 'github.com/injectable-tests/some-repo',
+        login: 'octocat',
+      );
+
+      expect(wrote, isTrue);
+      final config = jsonDecode(configFile.readAsStringSync()) as Map<String, dynamic>;
+      expect(config, {
+        'env': {'ANTHROPIC_BASE_URL': 'https://gateway.example.com/p/github.com/injectable-tests/some-repo/octocat'},
+      });
+      expect(File(p.join(project.path, '.claude', 'settings.json')).existsSync(), isFalse);
+    });
+
+    test('keeps an env entry the project already declared for itself', () {
+      configFile.parent.createSync(recursive: true);
+      configFile.writeAsStringSync(
+        jsonEncode({
+          'env': {'SOME_OTHER_VAR': 'kept as is'},
+        }),
+      );
+
+      ensureGatewayUrlDeclared(
+        project,
+        gatewayBaseUrl: 'https://gateway.example.com',
+        projectId: 'github.com/injectable-tests/some-repo',
+        login: 'octocat',
+      );
+
+      final config = jsonDecode(configFile.readAsStringSync()) as Map<String, dynamic>;
+      final env = config['env'] as Map<String, dynamic>;
+      expect(env['SOME_OTHER_VAR'], 'kept as is');
+      expect(env['ANTHROPIC_BASE_URL'], isNotNull);
+    });
+
+    test('keeps a top-level key that has nothing to do with env', () {
+      configFile.parent.createSync(recursive: true);
+      configFile.writeAsStringSync(jsonEncode({'somethingElse': 'kept as is'}));
+
+      ensureGatewayUrlDeclared(
+        project,
+        gatewayBaseUrl: 'https://gateway.example.com',
+        projectId: 'github.com/injectable-tests/some-repo',
+        login: 'octocat',
+      );
+
+      final config = jsonDecode(configFile.readAsStringSync()) as Map<String, dynamic>;
+      expect(config['somethingElse'], 'kept as is');
+    });
+
+    test('writes nothing and returns false when there is no stored login', () {
+      final wrote = ensureGatewayUrlDeclared(
+        project,
+        gatewayBaseUrl: 'https://gateway.example.com',
+        projectId: 'github.com/injectable-tests/some-repo',
+        login: null,
+      );
+
+      expect(wrote, isFalse);
+      expect(configFile.existsSync(), isFalse);
+      expect(File(p.join(project.path, '.claude', 'settings.json')).existsSync(), isFalse);
+    });
   });
 }

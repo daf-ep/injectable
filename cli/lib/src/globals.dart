@@ -294,6 +294,29 @@ String get backendBaseUrl =>
             BackendBaseUrl(Platform.environment['INJECTABLE_BACKEND_URL'] ?? 'http://localhost:8080'))
         .url;
 
+/// Where injectable's BYOK gateway lives.
+///
+/// Wrapped rather than looked up through a raw [String], so a test
+/// overriding it never risks colliding with an unrelated one a future
+/// override might register.
+class GatewayBaseUrl {
+  /// Wraps [url], the answer [gatewayBaseUrl] should give for this run.
+  const GatewayBaseUrl(this.url);
+
+  /// Where this run's gateway calls go.
+  final String url;
+}
+
+/// Where this run's gateway calls go, [backendBaseUrl] unless
+/// `INJECTABLE_GATEWAY_URL` says otherwise.
+///
+/// The gateway and the backend API are the same deployed `dpw-backend`, so
+/// a project with no separate gateway deployment needs nothing beyond the
+/// backend url it already sets.
+String get gatewayBaseUrl =>
+    (context.get<GatewayBaseUrl>() ?? GatewayBaseUrl(Platform.environment['INJECTABLE_GATEWAY_URL'] ?? backendBaseUrl))
+        .url;
+
 /// Wraps the answer [githubOAuthClientId] should give for this run, kept
 /// apart from [GitLabOAuthClientId] so overriding one host's client id in a
 /// test never overrides the other's too.

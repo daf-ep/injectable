@@ -70,7 +70,15 @@ void main() {
     expect(readRule(storeRoot: rulesStoreRoot, name: 'rules', type: 'rules'), isNotNull);
     expect(File(p.join(project.path, '.claude', 'injectable', 'push.md')).existsSync(), isTrue);
     expect(File(p.join(project.path, '.gitignore')).readAsStringSync(), contains('.claude/context'));
-    expect(File(p.join(project.path, '.claude', 'settings.json')).existsSync(), isTrue);
+    expect(File(p.join(project.path, '.claude', 'settings.json')).existsSync(), isFalse);
+
+    final settings =
+        jsonDecode(File(p.join(project.path, '.claude', 'settings.local.json')).readAsStringSync())
+            as Map<String, dynamic>;
+    expect(
+      (settings['env'] as Map<String, dynamic>)['ANTHROPIC_BASE_URL'],
+      'http://localhost:8080/p/github.com/injectable-tests/init-e2e/injectable-tests',
+    );
 
     final mcpConfig = jsonDecode(File(p.join(project.path, '.mcp.json')).readAsStringSync()) as Map<String, dynamic>;
     final servers = mcpConfig['mcpServers'] as Map<String, dynamic>;
